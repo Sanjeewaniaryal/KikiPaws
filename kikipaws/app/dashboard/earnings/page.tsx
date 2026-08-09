@@ -127,20 +127,29 @@ export default function EarningsPage() {
                 </div>
               ) : (
                 <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
-                  {data?.bookings.map((b) => (
-                    <div key={b._id} className="flex items-center justify-between px-6 py-4">
-                      <div>
-                        <p className="text-sm font-medium capitalize" style={{ color: 'var(--foreground)' }}>
-                          {b.service} — {b.petId?.name}
-                        </p>
-                        <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                          {b.ownerId?.firstName} {b.ownerId?.lastName} ·{' '}
-                          {new Date(b.startDate).toLocaleDateString()} – {new Date(b.endDate).toLocaleDateString()}
-                        </p>
+                  {data?.bookings.map((b) => {
+                    const startD = new Date(b.startDate)
+                    const endD = new Date(b.endDate)
+                    const dateOpts = { month: 'short', day: 'numeric' } as const
+                    const timeOpts = { hour: 'numeric', minute: '2-digit' } as const
+                    const sameDay = startD.toDateString() === endD.toDateString()
+                    const rangeLabel = sameDay
+                      ? `${startD.toLocaleDateString(undefined, dateOpts)} ${startD.toLocaleTimeString([], timeOpts)} – ${endD.toLocaleTimeString([], timeOpts)}`
+                      : `${startD.toLocaleDateString(undefined, dateOpts)}, ${startD.toLocaleTimeString([], timeOpts)} → ${endD.toLocaleDateString(undefined, dateOpts)}, ${endD.toLocaleTimeString([], timeOpts)}`
+                    return (
+                      <div key={b._id} className="flex items-center justify-between px-6 py-4">
+                        <div>
+                          <p className="text-sm font-medium capitalize" style={{ color: 'var(--foreground)' }}>
+                            {b.service} — {b.petId?.name}
+                          </p>
+                          <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                            {b.ownerId?.firstName} {b.ownerId?.lastName} · {rangeLabel}
+                          </p>
+                        </div>
+                        <p className="text-sm font-semibold" style={{ color: '#166534' }}>+${b.totalPrice.toFixed(2)}</p>
                       </div>
-                      <p className="text-sm font-semibold" style={{ color: '#166534' }}>+${b.totalPrice.toFixed(2)}</p>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

@@ -33,6 +33,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  if (status === 'accepted') {
+    const conflict = await Booking.exists({
+      _id: { $ne: booking._id },
+      sitterId: booking.sitterId._id,
+      status: { $in: ['accepted', 'active'] },
+      startDate: { $lt: booking.endDate },
+      endDate: { $gt: booking.startDate },
+    })
+    if (conflict) {
+      return NextResponse.json({ error: 'You already have another accepted booking that overlaps this time.' }, { status: 409 })
+    }
+  }
+
   booking.status = status
   await booking.save()
 

@@ -49,8 +49,27 @@ export async function POST(req: Request) {
 
   const start = new Date(startDate)
   const end = new Date(endDate)
-  const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)))
-  const totalPrice = sitterProfile.hourlyRate * 8 * days
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return NextResponse.json({ error: 'Invalid start/end date or time' }, { status: 400 })
+  }
+
+  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+  if (hours < 0.5 || hours > 720) {
+    return NextResponse.json({ error: 'End must be at least 30 minutes after start, and no more than 30 days' }, { status: 400 })
+  }
+
+  // Block requests that overlap a slot the sitter has already committed to
+  const conflict = await Booking.exists({
+    sitterId: sitterProfile.userId,
+    status: { $in: ['accepted', 'active'] },
+    startDate: { $lt: end },
+    endDate: { $gt: start },
+  })
+  if (conflict) {
+    return NextResponse.json({ error: 'This sitter is already booked for part of that time. Please choose a different time.' }, { status: 409 })
+  }
+
+  const totalPrice = sitterProfile.hourlyRate * hours
 
   const booking = await Booking.create({
     ownerId: owner._id,
@@ -60,6 +79,7 @@ export async function POST(req: Request) {
     service,
     startDate: start,
     endDate: end,
+    durationHours: hours,
     totalPrice,
     notes,
   })

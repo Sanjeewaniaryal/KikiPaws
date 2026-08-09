@@ -115,7 +115,7 @@ kikipaws/
 
 **Pet** — Belongs to a User (owner). Stores `name`, `breed`, `age`, `size`, `notes`, `photo`.
 
-**Booking** — Links `ownerId`, `sitterId`, `sitterProfileId`, `petId`. Tracks `service`, `startDate`, `endDate`, `totalPrice`, `status` (pending → accepted → active → completed / declined / cancelled), `paymentStatus` (unpaid / paid / refunded), `stripeSessionId`, `reviewed`.
+**Booking** — Links `ownerId`, `sitterId`, `sitterProfileId`, `petId`. Tracks `service`, `startDate`, `endDate`, `durationHours`, `totalPrice`, `status` (pending → accepted → active → completed / declined / cancelled), `paymentStatus` (unpaid / paid / refunded), `stripeSessionId`, `reviewed`.
 
 **Message** — Belongs to a Booking. Stores `senderId`, `text`, `readBy` (array of user IDs for unread tracking).
 

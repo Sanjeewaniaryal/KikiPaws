@@ -108,11 +108,17 @@ export default function BookingsPage() {
   }, [])
 
   async function updateStatus(id: string, status: string) {
-    await fetch(`/api/bookings/${id}`, {
+    const res = await fetch(`/api/bookings/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setToast({ msg: data.error || 'Failed to update booking.', ok: false })
+      setTimeout(() => setToast(null), 5000)
+      return
+    }
     const refresh = (list: Booking[]) =>
       list.map((b) => (b._id === id ? { ...b, status } : b))
     setAsOwner(refresh)
@@ -192,8 +198,14 @@ export default function BookingsPage() {
             {list.map((booking) => {
               const style = STATUS_STYLES[booking.status] || STATUS_STYLES.pending
               const other = tab === 'owner' ? booking.sitterId : booking.ownerId
-              const start = new Date(booking.startDate).toLocaleDateString()
-              const end = new Date(booking.endDate).toLocaleDateString()
+              const startD = new Date(booking.startDate)
+              const endD = new Date(booking.endDate)
+              const dateOpts = { month: 'short', day: 'numeric', year: 'numeric' } as const
+              const timeOpts = { hour: 'numeric', minute: '2-digit' } as const
+              const sameDay = startD.toDateString() === endD.toDateString()
+              const rangeLabel = sameDay
+                ? `${startD.toLocaleDateString(undefined, dateOpts)} · ${startD.toLocaleTimeString([], timeOpts)} – ${endD.toLocaleTimeString([], timeOpts)}`
+                : `${startD.toLocaleDateString(undefined, dateOpts)}, ${startD.toLocaleTimeString([], timeOpts)} → ${endD.toLocaleDateString(undefined, dateOpts)}, ${endD.toLocaleTimeString([], timeOpts)}`
 
               return (
                 <div
@@ -207,7 +219,7 @@ export default function BookingsPage() {
                         {SERVICE_LABELS[booking.service] || booking.service}
                       </p>
                       <p className="mt-0.5 text-xs" style={{ color: 'var(--muted)' }}>
-                        🐾 {booking.petId?.name} · {start} → {end}
+                        🐾 {booking.petId?.name} · {rangeLabel}
                       </p>
                       {other && (
                         <p className="mt-0.5 text-xs" style={{ color: 'var(--muted)' }}>

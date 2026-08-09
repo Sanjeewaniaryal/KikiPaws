@@ -8,6 +8,7 @@ export interface IBooking extends Document {
   service: 'sitting' | 'walking' | 'boarding' | 'dropin' | 'grooming'
   startDate: Date
   endDate: Date
+  durationHours: number
   status: 'pending' | 'accepted' | 'declined' | 'active' | 'completed' | 'cancelled'
   totalPrice: number
   notes?: string
@@ -31,6 +32,7 @@ const BookingSchema = new Schema<IBooking>(
     },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
+    durationHours: { type: Number, required: true, min: 0.5 },
     status: {
       type: String,
       enum: ['pending', 'accepted', 'declined', 'active', 'completed', 'cancelled'],

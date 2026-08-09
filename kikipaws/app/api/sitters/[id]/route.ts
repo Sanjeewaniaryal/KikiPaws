@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import SitterProfile from '@/lib/models/SitterProfile'
 import Review from '@/lib/models/Review'
+import Booking from '@/lib/models/Booking'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -18,5 +19,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .sort({ createdAt: -1 })
     .lean()
 
-  return NextResponse.json({ profile, reviews })
+  // Time ranges the sitter is already committed to, so the booking form can
+  // warn about conflicts before the owner even submits a request.
+  const sitterUserId = (profile.userId as { _id: unknown })._id
+  const upcoming = await Booking.find({
+    sitterId: sitterUserId,
+    status: { $in: ['accepted', 'active'] },
+    endDate: { $gte: new Date() },
+  })
+    .select('startDate endDate')
+    .lean()
+  const bookedRanges = upcoming.map((b) => ({ start: b.startDate, end: b.endDate }))
+
+  return NextResponse.json({ profile, reviews, bookedRanges })
 }

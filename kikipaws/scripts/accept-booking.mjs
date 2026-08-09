@@ -34,7 +34,13 @@ if (pending.length === 0) {
 
 console.log(`Found ${pending.length} pending booking(s):\n`)
 pending.forEach((b, i) => {
-  console.log(`  [${i}] ${b.service} | $${b.totalPrice} | ${new Date(b.startDate).toLocaleDateString()} → ${new Date(b.endDate).toLocaleDateString()} | id: ${b._id}`)
+  const start = new Date(b.startDate)
+  const end = new Date(b.endDate)
+  const timeOpts = { hour: 'numeric', minute: '2-digit' }
+  const range = start.toDateString() === end.toDateString()
+    ? `${start.toLocaleDateString()} ${start.toLocaleTimeString([], timeOpts)} – ${end.toLocaleTimeString([], timeOpts)}`
+    : `${start.toLocaleDateString()} ${start.toLocaleTimeString([], timeOpts)} → ${end.toLocaleDateString()} ${end.toLocaleTimeString([], timeOpts)}`
+  console.log(`  [${i}] ${b.service} | $${b.totalPrice} | ${range} | id: ${b._id}`)
 })
 
 // Accept the most recent one

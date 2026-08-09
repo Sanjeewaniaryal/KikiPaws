@@ -23,6 +23,17 @@ function fmt(date: string) {
   return new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function fmtTime(date: string) {
+  return new Date(date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+function fmtRange(startDate: string, endDate: string) {
+  const sameDay = new Date(startDate).toDateString() === new Date(endDate).toDateString()
+  return sameDay
+    ? `${fmt(startDate)}, ${fmtTime(startDate)} – ${fmtTime(endDate)}`
+    : `${fmt(startDate)}, ${fmtTime(startDate)} → ${fmt(endDate)}, ${fmtTime(endDate)}`
+}
+
 export async function sendBookingRequestEmail(data: BookingEmailData) {
   if (!resend) return
 
@@ -37,7 +48,7 @@ export async function sendBookingRequestEmail(data: BookingEmailData) {
         <p><strong>${data.ownerName}</strong> has requested a booking with you.</p>
         <div style="background:#f5f3ff;border-radius:12px;padding:16px;margin:16px 0">
           <p style="margin:4px 0"><strong>Service:</strong> ${SERVICE_LABELS[data.service] || data.service}</p>
-          <p style="margin:4px 0"><strong>Dates:</strong> ${fmt(data.startDate)} → ${fmt(data.endDate)}</p>
+          <p style="margin:4px 0"><strong>Date &amp; Time:</strong> ${fmtRange(data.startDate, data.endDate)}</p>
           <p style="margin:4px 0"><strong>Total:</strong> $${data.totalPrice}</p>
         </div>
         <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/bookings"
@@ -79,7 +90,7 @@ export async function sendBookingStatusEmail(data: BookingEmailData, status: 'ac
         <p>${messages[status]}</p>
         <div style="background:#f5f3ff;border-radius:12px;padding:16px;margin:16px 0">
           <p style="margin:4px 0"><strong>Service:</strong> ${SERVICE_LABELS[data.service] || data.service}</p>
-          <p style="margin:4px 0"><strong>Dates:</strong> ${fmt(data.startDate)} → ${fmt(data.endDate)}</p>
+          <p style="margin:4px 0"><strong>Date &amp; Time:</strong> ${fmtRange(data.startDate, data.endDate)}</p>
           <p style="margin:4px 0"><strong>Total:</strong> $${data.totalPrice}</p>
         </div>
         ${isAccepted ? `<a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/bookings"
@@ -105,7 +116,7 @@ export async function sendPaymentConfirmedEmail(data: BookingEmailData) {
           <div style="background:#f5f3ff;border-radius:12px;padding:16px;margin:16px 0">
             <p style="margin:4px 0"><strong>Sitter:</strong> ${data.sitterName}</p>
             <p style="margin:4px 0"><strong>Service:</strong> ${SERVICE_LABELS[data.service] || data.service}</p>
-            <p style="margin:4px 0"><strong>Dates:</strong> ${fmt(data.startDate)} → ${fmt(data.endDate)}</p>
+            <p style="margin:4px 0"><strong>Date &amp; Time:</strong> ${fmtRange(data.startDate, data.endDate)}</p>
             <p style="margin:4px 0"><strong>Total paid:</strong> $${data.totalPrice}</p>
           </div>
         </div>`,
@@ -121,7 +132,7 @@ export async function sendPaymentConfirmedEmail(data: BookingEmailData) {
           <div style="background:#f5f3ff;border-radius:12px;padding:16px;margin:16px 0">
             <p style="margin:4px 0"><strong>Owner:</strong> ${data.ownerName}</p>
             <p style="margin:4px 0"><strong>Service:</strong> ${SERVICE_LABELS[data.service] || data.service}</p>
-            <p style="margin:4px 0"><strong>Dates:</strong> ${fmt(data.startDate)} → ${fmt(data.endDate)}</p>
+            <p style="margin:4px 0"><strong>Date &amp; Time:</strong> ${fmtRange(data.startDate, data.endDate)}</p>
             <p style="margin:4px 0"><strong>Amount:</strong> $${data.totalPrice}</p>
           </div>
         </div>`,

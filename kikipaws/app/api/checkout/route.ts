@@ -45,7 +45,15 @@ export async function POST(req: Request) {
           currency: 'usd',
           product_data: {
             name: `Pet sitting for ${pet?.name ?? 'your pet'}`,
-            description: `Sitter: ${sitter?.firstName ?? ''} ${sitter?.lastName ?? ''} · ${new Date(booking.startDate).toLocaleDateString()} – ${new Date(booking.endDate).toLocaleDateString()}`,
+            description: (() => {
+              const startD = new Date(booking.startDate)
+              const endD = new Date(booking.endDate)
+              const timeOpts = { hour: 'numeric', minute: '2-digit' } as const
+              const range = startD.toDateString() === endD.toDateString()
+                ? `${startD.toLocaleDateString()} ${startD.toLocaleTimeString([], timeOpts)} – ${endD.toLocaleTimeString([], timeOpts)}`
+                : `${startD.toLocaleDateString()} ${startD.toLocaleTimeString([], timeOpts)} → ${endD.toLocaleDateString()} ${endD.toLocaleTimeString([], timeOpts)}`
+              return `Sitter: ${sitter?.firstName ?? ''} ${sitter?.lastName ?? ''} · ${range}`
+            })(),
           },
           unit_amount: Math.round(booking.totalPrice * 100), // cents
         },

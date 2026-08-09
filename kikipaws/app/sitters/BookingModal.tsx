@@ -28,11 +28,14 @@ interface Props {
 
 export default function BookingModal({ sitter, onClose }: Props) {
   const [pets, setPets] = useState<Pet[]>([])
+  const [bookedRanges, setBookedRanges] = useState<{ start: string; end: string }[]>([])
   const [form, setForm] = useState({
     petId: '',
     service: sitter.services[0] || '',
     startDate: '',
+    startTime: '09:00',
     endDate: '',
+    endTime: '17:00',
     notes: '',
   })
   const [saving, setSaving] = useState(false)
@@ -41,24 +44,42 @@ export default function BookingModal({ sitter, onClose }: Props) {
 
   useEffect(() => {
     fetch('/api/pets').then((r) => r.json()).then(setPets)
-  }, [])
+    fetch(`/api/sitters/${sitter._id}`).then((r) => r.json()).then((d) => setBookedRanges(d.bookedRanges || []))
+  }, [sitter._id])
 
-  const days = form.startDate && form.endDate
-    ? Math.max(1, Math.ceil((new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000 * 60 * 60 * 24)))
-    : 1
-  const estimate = sitter.hourlyRate * 8 * days
+  const startDateTime = form.startDate && form.startTime ? new Date(`${form.startDate}T${form.startTime}`) : null
+  const endDateTime = form.endDate && form.endTime ? new Date(`${form.endDate}T${form.endTime}`) : null
+  const validRange = !!(startDateTime && endDateTime && !isNaN(startDateTime.getTime()) && !isNaN(endDateTime.getTime()) && endDateTime > startDateTime)
+  const hours = validRange ? (endDateTime!.getTime() - startDateTime!.getTime()) / (1000 * 60 * 60) : 0
+  const estimate = sitter.hourlyRate * hours
+  const timeFmt = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  const dateFmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+
+  const hasConflict = validRange && bookedRanges.some((r) => {
+    const busyStart = new Date(r.start)
+    const busyEnd = new Date(r.end)
+    return busyStart < endDateTime! && busyEnd > startDateTime!
+  })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     if (!form.petId) { setError('Please select a pet'); return }
-    if (!form.startDate || !form.endDate) { setError('Please select both dates'); return }
-    if (new Date(form.endDate) < new Date(form.startDate)) { setError('End date must be after start date'); return }
+    if (!form.startDate || !form.startTime || !form.endDate || !form.endTime) { setError('Please select a start and end date/time'); return }
+    if (!validRange) { setError('End must be after start'); return }
+    if (hasConflict) { setError('This sitter is already booked for part of that time. Please choose a different time.'); return }
     setSaving(true)
     const res = await fetch('/api/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sitterProfileId: sitter._id, ...form }),
+      body: JSON.stringify({
+        sitterProfileId: sitter._id,
+        petId: form.petId,
+        service: form.service,
+        startDate: startDateTime!.toISOString(),
+        endDate: endDateTime!.toISOString(),
+        notes: form.notes,
+      }),
     })
     setSaving(false)
     if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed to create booking'); return }
@@ -160,6 +181,22 @@ export default function BookingModal({ sitter, onClose }: Props) {
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                      Start Time
+                    </label>
+                    <input
+                      type="time"
+                      value={form.startTime}
+                      onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                      required
+                      className="w-full rounded-xl border px-4 py-2.5 text-sm outline-none"
+                      style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--foreground)' }}>
                       End Date
                     </label>
                     <input
@@ -167,6 +204,19 @@ export default function BookingModal({ sitter, onClose }: Props) {
                       value={form.endDate}
                       min={form.startDate || new Date().toISOString().split('T')[0]}
                       onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                      required
+                      className="w-full rounded-xl border px-4 py-2.5 text-sm outline-none"
+                      style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                      End Time
+                    </label>
+                    <input
+                      type="time"
+                      value={form.endTime}
+                      onChange={(e) => setForm({ ...form, endTime: e.target.value })}
                       required
                       className="w-full rounded-xl border px-4 py-2.5 text-sm outline-none"
                       style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
@@ -188,13 +238,26 @@ export default function BookingModal({ sitter, onClose }: Props) {
                   />
                 </div>
 
-                {form.startDate && form.endDate && (
+                {validRange && startDateTime && endDateTime && (
                   <div
                     className="rounded-xl p-4 text-sm"
-                    style={{ background: '#f5f3ff', color: 'var(--foreground)' }}
+                    style={hasConflict ? { background: '#fee2e2', color: '#991b1b' } : { background: '#f5f3ff', color: 'var(--foreground)' }}
                   >
-                    <span style={{ color: 'var(--muted)' }}>Estimated total ({days} day{days > 1 ? 's' : ''}): </span>
-                    <span className="font-bold">${estimate}</span>
+                    <p style={hasConflict ? undefined : { color: 'var(--muted)' }}>
+                      {startDateTime.toDateString() === endDateTime.toDateString()
+                        ? <>{dateFmt(startDateTime)} · {timeFmt(startDateTime)} – {timeFmt(endDateTime)}</>
+                        : <>{dateFmt(startDateTime)}, {timeFmt(startDateTime)} → {dateFmt(endDateTime)}, {timeFmt(endDateTime)}</>
+                      }
+                      {' '}({hours % 1 === 0 ? hours : hours.toFixed(1)} hour{hours !== 1 ? 's' : ''})
+                    </p>
+                    {hasConflict ? (
+                      <p className="mt-1 font-medium">⚠️ Sitter is already booked during part of this time.</p>
+                    ) : (
+                      <p className="mt-1">
+                        <span style={{ color: 'var(--muted)' }}>Estimated total: </span>
+                        <span className="font-bold">${estimate.toFixed(2)}</span>
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -210,7 +273,7 @@ export default function BookingModal({ sitter, onClose }: Props) {
                   </button>
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || hasConflict}
                     className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                     style={{ background: 'var(--primary)' }}
                   >

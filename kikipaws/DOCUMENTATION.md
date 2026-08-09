@@ -111,7 +111,8 @@ The central entity linking an owner, sitter, sitter profile, and pet.
 | `sitterProfileId` | ObjectId → SitterProfile | |
 | `petId` | ObjectId → Pet | |
 | `service` | enum (same 5 values as `SitterProfile.services`) | |
-| `startDate`, `endDate` | Date | |
+| `startDate`, `endDate` | Date | Exact start/end instants (date + time), chosen independently by the owner |
+| `durationHours` | number | `(endDate - startDate)` in hours, derived server-side; stored for display/reporting |
 | `totalPrice` | number | computed once at creation, see §7.1 |
 | `status` | `pending → accepted → active → completed`, or `declined`/`cancelled` | state machine, see §3.1 below |
 | `paymentStatus` | `unpaid → paid → refunded` | independent of `status` |
@@ -144,7 +145,7 @@ All endpoints are under `/api`. Unless noted, request/response bodies are JSON. 
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | `GET` | `/api/bookings` | required | Returns `{ asOwner: Booking[], asSitter: Booking[] }` for the current user, each populated with counterpart name/photo and pet name/breed. |
-| `POST` | `/api/bookings` | required (owner) | Body: `{ sitterProfileId, petId, service, startDate, endDate, notes? }`. Computes `totalPrice = hourlyRate * 8 * days` (see §7.1), creates booking with `status: 'pending'`, fires `sendBookingRequestEmail`. Returns `201` + booking. |
+| `POST` | `/api/bookings` | required (owner) | Body: `{ sitterProfileId, petId, service, startDate, endDate, notes? }`. Both `startDate`/`endDate` are full ISO datetimes (date + time), chosen independently by the owner. Requires `endDate` to be 30 minutes–30 days after `startDate`. Computes `durationHours = (endDate - startDate) / 1hr` and `totalPrice = hourlyRate * durationHours` (see §7.1), creates booking with `status: 'pending'`, fires `sendBookingRequestEmail`. Returns `201` + booking. |
 | `PATCH` | `/api/bookings/[id]` | required | Body: `{ status }`. Sitter can set `accepted\|declined\|active\|completed`; owner can set `cancelled`. Fires status-change email for `accepted\|declined\|cancelled`. |
 | `POST` | `/api/bookings/[id]/refund` | required (owner) | No body. Requires `paymentStatus: 'paid'` and `status: 'cancelled'`. Calls `stripe.refunds.create` against the Checkout session's PaymentIntent, sets `paymentStatus: 'refunded'`. |
 
@@ -226,10 +227,10 @@ All endpoints are under `/api`. Unless noted, request/response bodies are JSON. 
 ### 6.1 Booking price calculation
 `totalPrice` is computed once, at booking creation time, in [app/api/bookings/route.ts](./app/api/bookings/route.ts):
 ```
-days = ceil((endDate - startDate) / 1 day), minimum 1
-totalPrice = sitterProfile.hourlyRate * 8 * days
+durationHours = (endDate - startDate) in hours
+totalPrice = sitterProfile.hourlyRate * durationHours
 ```
-This assumes an implicit 8-hour "day" of service. It is **not** recalculated later — if the sitter's `hourlyRate` changes after a booking is created, existing bookings keep their original price.
+The owner picks a start date/time and an end date/time directly in the booking form; `durationHours` is derived server-side (must be between 0.5 and 720 hours). It is **not** recalculated later — if the sitter's `hourlyRate` changes after a booking is created, existing bookings keep their original price.
 
 ### 6.2 Real-time chat (SSE)
 There is no WebSocket/pub-sub layer. `/api/messages/sse` opens a long-lived HTTP response and, inside a `setInterval(…, 2000)`, queries MongoDB for messages newer than the last check. The client (`ChatDrawer.tsx`) consumes this as an `EventSource`. The unread-count badge on the dashboard (`components/UnreadBadge.tsx`) polls `/api/messages/unread` independently every 30 seconds — it is not pushed via SSE.
